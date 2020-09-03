@@ -1,1 +1,193 @@
+###Pong Game###
+###Libraries
+import pygame
+import time
+import random
+import neat
+import os
+
+###Constant variables
+(WIDTH, HEIGHT) = (500,300)
+BACKROUND = (0, 0, 0)
+
+#Colours
+RED = (180, 0, 0)
+WHITE = (255, 255, 255)
+
+#Font 
+pygame.init() #Nodig voor font, anders error
+ARIAL = pygame.font.SysFont("Arial", 20, True, False)
+
+#Ball
+BALL_START_X = WIDTH
+BALL_START_Y = HEIGHT / 2
+BALL_RADIUS = 10
+SPEED_MIN = 75 #pixels per sec
+SPEED_MAX = 300 
+
+#Player
+PLAYER_START_X = 0
+PLAYER_START_Y = HEIGHT / 2
+PLAYER_LENGHT = 40
+PLAYER_SPEED = 250
+START_LIVE = 15
+
+###Global variables
+ball_list = list()
+
+#time
+Global_cycle_timer = 0.01 #Houd bij hoe lang elke cycle van de main loop duurt
+Cycle_time_start = 0
+
+###Functions
+def opperate_all_balls():
+  for i in range(len(ball_list) -1, -1, -1):
+    ball_list[i].move_ball()
+    ball_list[i].draw_ball()
+
+###Classes
+class Ball():
+  def __init__(self):
+    self.x_cord = BALL_START_X
+    self.y_cord = BALL_START_Y
+    self.radius = BALL_RADIUS
+    self.x_speed = random.randint(SPEED_MIN + 50, SPEED_MAX - 75)
+    self.y_speed = random.randint(SPEED_MIN, SPEED_MAX)
+    self.x_speed = self.x_speed * -1
+    if random.randint(0, 1) == 0:
+      self.y_speed = self.y_speed * -1
+  
+  def move_ball(self):
+    self.x_cord = self.x_cord + (self.x_speed * Global_cycle_timer)
+    self.y_cord = self.y_cord + (self.y_speed * Global_cycle_timer)
+    #Border
+    if self.y_cord < 0:
+      self.y_cord = 0
+      self.y_speed = self.y_speed * -1
+    elif self.y_cord > HEIGHT:
+      self.y_cord = HEIGHT
+      self.y_speed = self.y_speed * -1
+    elif self.x_cord > WIDTH:
+      self.x_cord = WIDTH
+      self.x_speed = self.x_speed * -1
+    
+  def draw_ball(self):
+    pygame.draw.circle(screen, RED, (int(self.x_cord),int(self.y_cord)), self.radius, 0)
+
+class Player():
+  def __init__(self):
+    self.x_cord = PLAYER_START_X
+    self.y_cord = PLAYER_START_Y
+    self.length = PLAYER_LENGHT
+    self.speed = PLAYER_SPEED
+    self.life = START_LIVE
+
+  def draw_player(self):
+    top = self.y_cord - self.length / 2
+    bottom = self.y_cord + self.length / 2
+    pygame.draw.line(screen, WHITE, (self.x_cord, top), (self.x_cord, bottom), 10)
+    pygame.draw.line(screen, RED, (self.x_cord, top + 4), (self.x_cord, bottom - 4), 6)
+
+  def move_player(self, up, down):
+    if up and self.y_cord - self.length / 2> 0:
+      self.y_cord = self.y_cord - self.speed * Global_cycle_timer
+    if down and self.y_cord + self.length / 2 < HEIGHT:
+      self.y_cord = self.y_cord + self.speed * Global_cycle_timer
+
+def main(genomes, config):
+  #Setup code
+  nets = list()
+  ge = list()
+  player_list = list()
+
+  for _, g in genomes:
+    net = neat.nn.FeedForwardNetwork.create(g, config)
+    nets.append(net)
+    player_list.append(Player())
+    g.fitness = 0
+    ge.append(g)
+
+  global screen
+  screen = pygame.display.set_mode((WIDTH, HEIGHT)) #Creër het scherm
+  screen.fill(BACKROUND)
+
+  ball_list.append(Ball())
+
+  run_sim = True
+  #Main program
+  while run_sim:
+    Cycle_time_start = time.time()
+    screen.fill(BACKROUND)
+
+    for event in pygame.event.get():
+      if event.type == pygame.QUIT:
+        run_sim = False
+        pygame.quit()
+        quit()
+
+    opperate_all_balls()
+    for x, player in enumerate(player_list):
+      #output runt de hele nearal network
+      output = nets[x].activate((player.y_cord, player.length, ball_list[0].x_cord, ball_list[0].y_cord)) #test met 1 bal
+      if output[0] > 0.5:
+        player.move_player(True, False)
+      if output[1] > 0.5:
+        player.move_player(False, True)
+
+      player.draw_player()
+
+    #check of player bal tegenhoud
+    for i in range(len(ball_list)):
+      if ball_list[i].x_cord < 0:
+        for x, player in reversed(list(enumerate(player_list))):
+          if ball_list[i].y_cord < player.y_cord - player.length / 2 or ball_list[i].y_cord > player.y_cord + player.length / 2:
+            if abs(player.y_cord - ball_list[i].y_cord) < 100:
+              ge[x].fitness = ge[x].fitness + int((100 - abs(player.y_cord - ball_list[i].y_cord)) / 5)
+            player.life = player.life - 1
+            if player.life < 0:
+              player_list.pop(x)
+              nets.pop(x)
+              ge.pop(x)
+          else:
+            ge[x].fitness = ge[x].fitness + 20
+        del ball_list[i]
+        ball_list.append(Ball())
+
+        if len(player_list) == 0:
+          run_sim = False
+          break
+
+    #Show amount players
+    player_amount = ARIAL.render(str(len(player_list)), False, WHITE)
+    screen.blit(player_amount, (20, 20))
+
+    pygame.display.flip()
+    global Global_cycle_timer
+    Global_cycle_timer = time.time() - Cycle_time_start
+
+  for i in range(len(ball_list)-1, -1, -1):
+    del ball_list[i]
+
+  print("End Generation")
+
+def run(config_path):
+  config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
+
+  pop = neat.Population(config)
+
+  #Geeft statestieken van population
+  pop.add_reporter(neat.StdOutReporter(True)) 
+  stats = neat.StatisticsReporter()
+  pop.add_reporter(stats)
+
+  winner = pop.run(main,50)
+
+start_time = time.time()
+
+if __name__ == "__main__":
+  local_dir = os.path.dirname(__file__) #File directory
+  config_path = os.path.join(local_dir, "config_file.txt") 
+  run(config_path)
+
+print("Time of sim run", time.time() - start_time)
 

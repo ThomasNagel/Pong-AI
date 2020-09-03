@@ -1,0 +1,122 @@
+###Pong Game###
+###Libraries
+import pygame
+import time
+import random
+
+###Constant variables
+(WIDTH, HEIGHT) = (500,300)
+BACKROUND = (0, 0, 0)
+
+#Colours
+RED = (180, 0, 0)
+WHITE = (255, 255, 255)
+
+#Ball
+BALL_START_X = WIDTH / 2
+BALL_START_Y = HEIGHT / 2
+BALL_RADIUS = 10
+SPEED_MIN = 100 #pixels per sec
+SPEED_MAX = 300 
+
+#Player
+PLAYER_START_X = 0
+PLAYER_START_Y = HEIGHT / 2
+PLAYER_LENGHT = 70
+PLAYER_SPEED = 300
+
+###Global variables
+ball_list = list()
+
+#time
+Global_cycle_timer = 0.01 #Houd bij hoe lang elke cycle van de main loop duurt
+Cycle_time_start = 0
+
+#einde spel
+Ball_alive = True
+
+###Functions
+def opperate_all_balls():
+  for i in range(len(ball_list)):
+    ball_list[i].move_ball()
+    ball_list[i].draw_ball()
+
+###Classes
+class Ball():
+  def __init__(self):
+    self.x_cord = BALL_START_X
+    self.y_cord = BALL_START_Y
+    self.radius = BALL_RADIUS
+    self.x_speed = random.randint(SPEED_MIN, SPEED_MAX)
+    self.y_speed = random.randint(SPEED_MIN, SPEED_MAX)
+    if random.randint(0,1) == 0:
+      self.x_speed = self.x_speed * -1
+    if random.randint(0,1) == 0:
+      self.y_speed = self.y_speed * -1
+  
+  def move_ball(self):
+    self.x_cord = self.x_cord + (self.x_speed * Global_cycle_timer)
+    self.y_cord = self.y_cord + (self.y_speed * Global_cycle_timer)
+    #Border
+    if self.y_cord < 0:
+      self.y_cord = 0
+      self.y_speed = self.y_speed * -1
+    elif self.y_cord > HEIGHT:
+      self.y_cord = HEIGHT
+      self.y_speed = self.y_speed * -1
+    elif self.x_cord > WIDTH:
+      self.x_cord = WIDTH
+      self.x_speed = self.x_speed * -1
+    
+    if self.x_cord < 0:
+      if self.y_cord >  machine.y_cord - machine.length / 2 and self.y_cord <  machine.y_cord + machine.length / 2: 
+        self.x_cord = 0
+        self.x_speed = self.x_speed * -1
+      else:
+        global Ball_alive
+        Ball_alive = False
+        
+
+  def draw_ball(self):
+      pygame.draw.circle(screen, RED, (int(self.x_cord),int(self.y_cord)), self.radius, 0)
+
+class Player():
+  def __init__(self):
+    self.x_cord = PLAYER_START_X
+    self.y_cord = PLAYER_START_Y
+    self.length = PLAYER_LENGHT
+    self.speed = PLAYER_SPEED
+
+  def draw_player(self):
+    top = self.y_cord + self.length / 2
+    bottom = self.y_cord - self.length / 2
+    pygame.draw.line(screen, WHITE, (self.x_cord, top), (self.x_cord, bottom), 5)
+
+  def move_player(self):
+    pygame.event.pump()
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_UP] and self.y_cord - self.length / 2> 0:
+      self.y_cord = self.y_cord - self.speed * Global_cycle_timer
+    if keys[pygame.K_DOWN] and self.y_cord + self.length / 2 < HEIGHT:
+      self.y_cord = self.y_cord + self.speed * Global_cycle_timer
+
+#Setup code
+screen = pygame.display.set_mode((WIDTH, HEIGHT)) #Creër het scherm
+screen.fill(BACKROUND)
+ball_list.append(Ball())
+machine = Player()
+
+#Main program
+while Ball_alive:
+  Cycle_time_start = time.time()
+  screen.fill(BACKROUND)
+
+  opperate_all_balls()
+  machine.draw_player()
+  machine.move_player()
+
+  pygame.display.flip()
+  time.sleep(0.01)
+  Global_cycle_timer = time.time() - Cycle_time_start
+
+print("GAME OVER")
